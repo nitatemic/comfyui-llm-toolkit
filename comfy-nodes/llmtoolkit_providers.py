@@ -147,7 +147,7 @@ class LLMToolkitProviderSelector:
             },
             "optional": {
                 "base_ip": ("STRING", {"default": "localhost", "tooltip": "IP address for local providers"}),
-                "port": ("STRING", {"default": "11434", "tooltip": "Port for local providers"}),
+                "port": ("STRING", {"default": "11434", "tooltip": "Port for local providers (Ollama: 11434, LM Studio: 1234)"}),
                 "context": ("*", {}),  # Accept context input type for maximum flexibility
             }
         }

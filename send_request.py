@@ -470,6 +470,30 @@ async def send_request(
                 seed=seed if random else None,
             )
 
+        # ------------------------------------------------------------------
+        #  OpenAI-compatible local providers (LM Studio, llama.cpp, KoboldCpp,
+        #  text-generation-webui, vLLM)
+        # ------------------------------------------------------------------
+        if llm_provider in {"lmstudio", "llamacpp", "kobold", "textgen", "vllm"}:
+            api_url = f"http://{base_ip}:{port}/v1/chat/completions"
+            logger.info(f"Using OpenAI-compatible endpoint for {llm_provider}: {api_url}")
+            return await send_openai_request(
+                api_url=api_url,
+                base64_images=formatted_images,
+                model=llm_model,
+                system_message=system_message,
+                user_message=user_message,
+                messages=messages or [],
+                api_key=llm_api_key or "1234",
+                seed=seed if random else None,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                repeat_penalty=repeat_penalty,
+                tools=None,
+                tool_choice=None,
+            )
+
         return {"error": f"Unsupported llm_provider '{llm_provider}'"}
 
     except Exception as e:
