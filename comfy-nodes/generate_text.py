@@ -569,8 +569,99 @@ async def send_request_stream(
                     await asyncio.sleep(0.1)
         return
 
+    # ------------------------------------------------------------------
+    #  OpenAI-compatible local providers (LM Studio, llama.cpp, KoboldCpp,
+    #  text-generation-webui, vLLM)
+    # ------------------------------------------------------------------
+    if provider_lower in ["lmstudio", "llamacpp", "kobold", "textgen", "vllm"]:
+        api_url = f"http://{base_ip}:{port}/v1/chat/completions"
+
+        headers = {
+            "Content-Type": "application/json",
+        }
+        # Local providers generally don't need a real API key, but some
+        # (e.g. vLLM with --api-key) accept one via the Authorization header.
+        auth_key = llm_api_key or "1234"
+        headers["Authorization"] = f"Bearer {auth_key}"
+
+        # Build message list if not provided
+        if not messages:
+            messages = []
+            if system_message:
+                messages.append({"role": "system", "content": system_message})
+
+            # Handle multimodal user content (text + images)
+            if base64_images:
+                content_blocks = []
+                if user_message:
+                    content_blocks.append({"type": "text", "text": user_message})
+                for img_b64 in base64_images:
+                    content_blocks.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"},
+                    })
+                messages.append({"role": "user", "content": content_blocks})
+            else:
+                if user_message:
+                    messages.append({"role": "user", "content": user_message})
+
+        payload = {
+            "model": llm_model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "top_p": top_p,
+            "stream": True,
+        }
+        # Remove None values
+        payload = {k: v for k, v in payload.items() if v is not None}
+
+        logger.info(f"Streaming request to {llm_provider} ({api_url}): model={llm_model}")
+        session = None
+        try:
+            connector = aiohttp.TCPConnector(force_close=True) if sys.platform == 'win32' else None
+            session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=timeout),
+                connector=connector
+            )
+
+            async with session.post(api_url, headers=headers, json=payload) as response:
+                response.raise_for_status()
+                async for raw_line in response.content:
+                    if not raw_line:
+                        continue
+                    line = raw_line.decode("utf-8").strip()
+                    if not line:
+                        continue
+                    if line.startswith("data: "):
+                        data_str = line[len("data: "):].strip()
+                    else:
+                        data_str = line
+                    if data_str == "[DONE]":
+                        break
+                    try:
+                        data_json = json.loads(data_str)
+                        choices = data_json.get("choices", [])
+                        if choices:
+                            delta = choices[0].get("delta", {})
+                            content_piece = delta.get("content")
+                            if content_piece:
+                                yield content_piece
+                    except json.JSONDecodeError:
+                        logger.warning(f"Could not decode JSON line from {llm_provider} stream: {data_str}")
+        except Exception as e:
+            logger.error(f"Error during {llm_provider} streaming: {e}", exc_info=True)
+            yield f"[{llm_provider} streaming error: {e}]"
+        finally:
+            if session and not session.closed:
+                await session.close()
+                if sys.platform == 'win32':
+                    await asyncio.sleep(0.1)
+        return
+
     # Existing fallback logic for other providers
-    if provider_lower not in ["ollama", "openai", "openrouter", "transformers", "hf", "local", "groq", "gemini"]:
+    if provider_lower not in ["ollama", "openai", "openrouter", "transformers", "hf", "local", "groq", "gemini",
+                               "lmstudio", "llamacpp", "kobold", "textgen", "vllm"]:
         logger.warning(f"Streaming not implemented for provider '{llm_provider}'. Falling back to non-streaming.")
         try:
             full_response_data = await send_request(
