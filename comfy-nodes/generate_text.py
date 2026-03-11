@@ -760,24 +760,36 @@ class LLMToolkitTextGenerator:
             }
 
             provider_config = None
-            if context is not None:
-                if isinstance(context, dict) and "provider_name" in context:
-                    provider_config = context
-                elif isinstance(context, dict) and "provider_config" in context:
+            if context is not None and isinstance(context, dict):
+                if "provider_config" in context and isinstance(context["provider_config"], dict):
                     provider_config = context["provider_config"]
+                elif "provider_name" in context:
+                    provider_config = context
 
             if provider_config and isinstance(provider_config, dict):
-                if "provider_name" in provider_config: params["llm_provider"] = provider_config["provider_name"]
-                if "api_key" in provider_config: params["llm_api_key"] = provider_config["api_key"]
-                if "base_ip" in provider_config: params["base_ip"] = provider_config["base_ip"]
-                if "port" in provider_config: params["port"] = provider_config["port"]
                 for key in provider_config:
                     if key not in ["provider_name", "llm_model", "api_key", "base_ip", "port", "user_prompt"]:
                         params[key] = provider_config[key]
+
+                if "provider_name" in provider_config and provider_config["provider_name"]:
+                    params["llm_provider"] = provider_config["provider_name"]
+                elif context and isinstance(context, dict) and context.get("provider_name"):
+                    params["llm_provider"] = context["provider_name"]
+
+                if "api_key" in provider_config and provider_config["api_key"]:
+                    params["llm_api_key"] = provider_config["api_key"]
+                elif context and isinstance(context, dict) and context.get("api_key"):
+                    params["llm_api_key"] = context["api_key"]
+
+                if "base_ip" in provider_config: params["base_ip"] = provider_config["base_ip"]
+                if "port" in provider_config: params["port"] = provider_config["port"]
+
                 if "user_prompt" in provider_config: params["user_message"] = provider_config["user_prompt"]
                 provider_model = provider_config.get("llm_model", "")
                 if provider_model:
                     params["llm_model"] = provider_model
+                elif context and isinstance(context, dict) and context.get("llm_model"):
+                    params["llm_model"] = context["llm_model"]
                 else:
                     params["llm_model"] = "" # Will be handled below
 
@@ -871,6 +883,15 @@ class LLMToolkitTextGenerator:
                     logger.info("Added %d frame(s) extracted from video file paths to images payload.", min(len(extracted_from_files), remaining))
             except Exception as e:
                 logger.warning("Failed to process video file paths for frame extraction: %s", e, exc_info=True)
+
+            # --- Ensure custom system_message from provider_config is used ---
+            # This explicit extraction guarantees the custom system prompt
+            # from upstream nodes (e.g. CustomSystemPromptNode) always
+            # overrides the hardcoded default.
+            if context and isinstance(context, dict):
+                pc = context.get("provider_config")
+                if isinstance(pc, dict) and pc.get("system_message"):
+                    params["system_message"] = pc["system_message"]
 
             log_params = _sanitize_params_for_log(params)
             logger.info(f"[Non-Streaming] Making LLM request with params: {log_params}")
@@ -1183,6 +1204,15 @@ class LLMToolkitTextGeneratorStream:
                         e,
                         exc_info=True,
                     )
+
+                # --- Ensure custom system_message from provider_config is used ---
+                # This explicit extraction guarantees the custom system prompt
+                # from upstream nodes (e.g. CustomSystemPromptNode) always
+                # overrides the hardcoded default.
+                if context and isinstance(context, dict):
+                    pc = context.get("provider_config")
+                    if isinstance(pc, dict) and pc.get("system_message"):
+                        params["system_message"] = pc["system_message"]
 
                 log_params = _sanitize_params_for_log(params)
                 logger.info(
