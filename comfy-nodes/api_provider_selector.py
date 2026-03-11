@@ -811,6 +811,11 @@ class APIProviderSelectorNode:
         if context is not None:
             if isinstance(context, dict):
                 merged = context.copy()
+                # Preserve existing provider_config keys (e.g. system_message from Custom System Prompt)
+                existing_pc = merged.get("provider_config")
+                if isinstance(existing_pc, dict):
+                    existing_pc.update(provider_config)
+                    provider_config = existing_pc
                 merged["provider_config"] = provider_config
                 result = merged
             else:
