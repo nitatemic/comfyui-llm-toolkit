@@ -261,15 +261,6 @@ class LLMPromptManager:
                     target[key] = value
             else:
                 target[key] = value
-        
-        # Special handling: If provider_config has a system_message but prompt_config doesn't have text,
-        # copy the system_message to prompt_config.text so downstream nodes can use it as the prompt
-        if "provider_config" in target and "system_message" in target["provider_config"]:
-            if "prompt_config" not in target:
-                target["prompt_config"] = {}
-            if "text" not in target.get("prompt_config", {}):
-                target["prompt_config"]["text"] = target["provider_config"]["system_message"]
-                logger.debug("Copied system_message to prompt_config.text for downstream compatibility")
 
     def manage_prompt(self, context=None, **kwargs) -> Tuple[Dict[str, Any]]:
         """
@@ -551,15 +542,6 @@ class LLMPromptManager:
              logger.info("PromptManager: Updated context with prompt_config.")
         else:
              logger.info("PromptManager: No prompt components provided.")
-        
-        # Final check: If provider_config has a system_message but prompt_config doesn't have text,
-        # copy the system_message to prompt_config.text so downstream nodes can use it as the prompt
-        if "provider_config" in output_context and "system_message" in output_context["provider_config"]:
-            if "prompt_config" not in output_context:
-                output_context["prompt_config"] = {}
-            if "text" not in output_context.get("prompt_config", {}) or not output_context["prompt_config"]["text"]:
-                output_context["prompt_config"]["text"] = output_context["provider_config"]["system_message"]
-                logger.info("Copied system_message to prompt_config.text for downstream compatibility")
 
         # Add metadata about processed items
         if items:
