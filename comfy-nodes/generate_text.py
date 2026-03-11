@@ -106,7 +106,7 @@ Please strictly follow the enhancing rules below:
 - For stylization tasks, describe the reference image's style in the rewritten prompt, while preserving the visual content of the source image.
 ## 3. Rationale and Logic Checks
 - Resolve contradictory instructions: e.g., "Remove all trees but keep all trees" should be logically corrected.
-- Add missing key information: e.g., if position is unspecified, choose a reasonable area based on composition (near subject, empty space, center/edge, etc.).\
+- Add missing key information: e.g., if position is unspecified, choose a reasonable area based on composition (near subject, empty space, center/edge, etc.).
 """
 
 # -----------------------------------------------------------------------------
@@ -820,8 +820,9 @@ class LLMToolkitTextGenerator:
 
             provider_config = None
             if context is not None and isinstance(context, dict):
-                if "provider_config" in context and isinstance(context["provider_config"], dict):
-                    provider_config = context["provider_config"]
+                pc = context.get("provider_config")
+                if isinstance(pc, dict):
+                    provider_config = pc
                 elif "provider_name" in context:
                     provider_config = context
 
