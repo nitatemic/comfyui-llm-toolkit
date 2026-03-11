@@ -213,6 +213,11 @@ class LLMToolkitProviderSelector:
         # Prepare output
         if context is not None:
             if isinstance(context, dict):
+                # Preserve existing provider_config keys (e.g. system_message from Custom System Prompt)
+                existing_pc = context.get("provider_config")
+                if isinstance(existing_pc, dict):
+                    existing_pc.update(provider_config)
+                    provider_config = existing_pc
                 context["provider_config"] = provider_config
                 result = context
                 logger.info(f"Merged provider_config into existing dict")
